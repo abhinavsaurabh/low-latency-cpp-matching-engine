@@ -25,7 +25,8 @@ void match_order(
   const Order& order,
   Quantity& remaining,
   std::unordered_map<OrderId, OrderBook::OrderLocator>& locators,
-  std::vector<Event>& events
+  std::vector<Event>& events,
+  auto&& rebuild_locators
 ) {
   auto crossable = [&](Price best_price) {
     return order.side == Side::Buy ? order.price >= best_price : order.price <= best_price;
@@ -48,8 +49,11 @@ void match_order(
       events.push_back(execution_event(order, resting.order, resting.order.price, executed, false));
 
       if (resting.open_quantity == 0U) {
+        const auto resting_side = resting.order.side;
+        const auto resting_price = resting.order.price;
         locators.erase(resting.order.order_id);
         queue.pop_front();
+        rebuild_locators(resting_side, resting_price);
       }
     }
 
@@ -247,6 +251,30 @@ CommandResult OrderBook::modify(OrderId order_id, Price new_price, Quantity new_
   return result;
 }
 
+std::optional<OrderBook::OrderState> OrderBook::find(OrderId order_id) const {
+  const auto locator_it = locators_.find(order_id);
+  if (locator_it == locators_.end()) {
+    return std::nullopt;
+  }
+
+  const auto locator = locator_it->second;
+  if (locator.side == Side::Buy) {
+    const auto level_it = bids_.find(locator.price);
+    if (level_it == bids_.end() || locator.offset >= level_it->second.size()) {
+      return std::nullopt;
+    }
+    const auto& resting = level_it->second[locator.offset];
+    return OrderState {.order = resting.order, .open_quantity = resting.open_quantity};
+  }
+
+  const auto level_it = asks_.find(locator.price);
+  if (level_it == asks_.end() || locator.offset >= level_it->second.size()) {
+    return std::nullopt;
+  }
+  const auto& resting = level_it->second[locator.offset];
+  return OrderState {.order = resting.order, .open_quantity = resting.open_quantity};
+}
+
 BookSnapshot OrderBook::snapshot() const {
   return BookSnapshot {
     .best_bid = top_level(bids_),
@@ -263,9 +291,23 @@ CommandResult OrderBook::add_limit(const Order& order) {
   Quantity remaining = order.quantity;
 
   if (order.side == Side::Buy) {
-    match_order(asks_, order, remaining, locators_, result.events);
+    match_order(
+      asks_,
+      order,
+      remaining,
+      locators_,
+      result.events,
+      [this](Side side, Price price) { rebuild_locators_at_price(side, price); }
+    );
   } else {
-    match_order(bids_, order, remaining, locators_, result.events);
+    match_order(
+      bids_,
+      order,
+      remaining,
+      locators_,
+      result.events,
+      [this](Side side, Price price) { rebuild_locators_at_price(side, price); }
+    );
   }
 
   if (remaining == 0U || order.tif == TimeInForce::IOC) {

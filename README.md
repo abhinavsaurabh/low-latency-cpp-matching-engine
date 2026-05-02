@@ -1,12 +1,12 @@
 # Low-Latency C++ Matching Engine
 
-A modern C++ matching engine and in-memory order book simulator designed to showcase HFT-style systems engineering, with price-time priority execution, pre-trade risk controls, deterministic testing, and benchmark tooling.
+A modern C++ matching engine and in-memory order book simulator focused on price-time priority execution, pre-trade risk controls, deterministic testing, and benchmark tooling.
 
 ## Overview
 
 This project models the core of a simple exchange-style matching engine for a single symbol. It accepts orders, validates them against basic risk limits, matches aggressive flow against the resting book, and maintains top-of-book state.
 
-The current implementation is intentionally compact and interview-friendly:
+The current implementation is intentionally compact and easy to follow:
 
 - Modern C++20 codebase with a small, readable surface area
 - Price-time priority matching for limit and market-style flows
@@ -19,7 +19,7 @@ The current implementation is intentionally compact and interview-friendly:
 - Order book design and matching engine control flow
 - Exchange-style event generation for accepts, executions, cancels, modifies, and rejects
 - Separation of concerns across matching, risk, benchmarking, and demo layers
-- A clean foundation for extending into more realistic HFT infrastructure
+- A clean foundation for extending into more realistic trading infrastructure
 
 ## Current Feature Set
 
@@ -31,7 +31,7 @@ The current implementation is intentionally compact and interview-friendly:
 - `cancel` and `modify` support
 - Basic pre-trade risk checks
 - Deterministic demo flow
-- Unit tests for core behavior
+- Unit tests for core behavior, FIFO sequencing, market/IOC flow, and modify/risk paths
 - Benchmark executable reporting `p50`, `p99`, and `p99.9`
 
 ## Project Layout
@@ -51,6 +51,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+The generated `build/` directory is not intended to be committed.
+
 ## Run
 
 ```bash
@@ -69,19 +71,9 @@ ctest --test-dir build --output-on-failure
 
 This makes it easy to follow how resting liquidity changes as new orders arrive.
 
-## Resume Title
-
-**Low-Latency C++ Matching Engine and Order Book Simulator**
-
-## Resume Bullets
-
-- Designed and implemented a C++20 price-time-priority matching engine supporting add, cancel, modify, and marketable order flows.
-- Built an in-memory order book with deterministic test coverage and benchmark tooling for latency percentile measurement.
-- Added pre-trade risk controls for order-size and absolute-position limits to model exchange or gateway-style checks.
-
 ## Limitations
 
-This project is a strong foundation project, but it is not yet a production-grade exchange core. The current version is intentionally focused on clarity and interview discussion rather than full market-microstructure coverage or aggressive low-latency optimization.
+This project is not yet a production-grade exchange core. The current version is focused on clarity, correctness, and extensibility rather than full market-microstructure coverage or aggressive low-latency optimization.
 
 Areas still open for improvement include:
 
@@ -90,6 +82,12 @@ Areas still open for improvement include:
 - improved data structures for cache locality
 - more realistic threading and queueing models
 - documented performance analysis with profiler output
+
+Recent hardening work includes:
+
+- preserving stable order lookup after partial fills at the same price level
+- enforcing risk validation on order modifications
+- extending tests for FIFO behavior, IOC semantics, and rejection paths
 
 ## Good Next Steps
 

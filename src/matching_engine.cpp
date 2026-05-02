@@ -38,7 +38,34 @@ CommandResult MatchingEngine::cancel(const CancelOrderRequest& request) {
 }
 
 CommandResult MatchingEngine::modify(const ModifyOrderRequest& request) {
-  return book_.modify(request.order_id, request.new_price, request.new_quantity, next_sequence());
+  const auto existing = book_.find(request.order_id);
+  if (!existing.has_value()) {
+    return CommandResult {.accepted = false, .reject_reason = RejectReason::UnknownOrderId, .events = {}};
+  }
+
+  auto updated = existing->order;
+  updated.price = request.new_price;
+  updated.quantity = request.new_quantity;
+  updated.sequence = next_sequence();
+
+  const auto risk_reject = risk_.validate(updated);
+  if (risk_reject != RejectReason::None) {
+    return CommandResult {
+      .accepted = false,
+      .reject_reason = risk_reject,
+      .events = {Event {
+        .type = EventType::Rejected,
+        .order_id = updated.order_id,
+        .resting_order_id = 0,
+        .trader_id = updated.trader_id,
+        .side = updated.side,
+        .price = updated.price,
+        .quantity = updated.quantity,
+        .reject_reason = risk_reject,
+      }},
+    };
+  }
+  return book_.modify(request.order_id, request.new_price, request.new_quantity, updated.sequence);
 }
 
 SequenceNumber MatchingEngine::next_sequence() noexcept {

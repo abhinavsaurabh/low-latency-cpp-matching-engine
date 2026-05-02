@@ -13,6 +13,11 @@ namespace hft {
 
 class OrderBook {
  public:
+  struct OrderState {
+    Order order {};
+    Quantity open_quantity {};
+  };
+
   OrderBook() = default;
 
   struct RestingOrder {
@@ -33,6 +38,7 @@ class OrderBook {
   CommandResult cancel(OrderId order_id);
   CommandResult modify(OrderId order_id, Price new_price, Quantity new_quantity, SequenceNumber new_sequence);
 
+  [[nodiscard]] std::optional<OrderState> find(OrderId order_id) const;
   [[nodiscard]] BookSnapshot snapshot() const;
   [[nodiscard]] std::size_t order_count() const noexcept;
 

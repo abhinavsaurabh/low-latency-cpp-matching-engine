@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(
   hft_matching_engine
   VERSION 0.1.0
-  DESCRIPTION "Resume-ready low-latency matching engine and order book simulator"
+  DESCRIPTION "Low-latency C++ matching engine and order book simulator"
   LANGUAGES CXX
 )
 
